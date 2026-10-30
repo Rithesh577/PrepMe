@@ -1,0 +1,402 @@
+.pageContainer {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-inter, 'Inter', sans-serif);
+}
+
+.mainCanvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow-y: auto;
+  position: relative;
+  background: var(--bg-base);
+}
+
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 40px;
+  background-color: var(--bg-base);
+  border-bottom: 1px solid var(--border);
+  z-index: 30;
+}
+
+.logoSection {
+  display: flex;
+  align-items: center;
+}
+
+.logoText {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.05em;
+}
+
+.profileSection {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 2px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.profileSection:hover {
+  transform: scale(1.08);
+}
+
+.profileSection:hover .avatar {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.profileSection:active {
+  transform: scale(0.96);
+}
+
+.profileSection:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.uploadSection {
+  flex: 1;
+  padding: 30px 40px 60px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.headerArea {
+  margin-bottom: 48px;
+}
+
+.headerArea h1 {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.headerArea p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+.workspaceGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sectionCard {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s ease;
+}
+
+.sectionCard:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.sectionHeader span {
+  color: var(--info);
+  font-size: 20px;
+}
+
+.sectionHeader h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Resume Section Specifics */
+.resumeArea {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-hover);
+  padding: 20px 24px;
+  border-radius: 16px;
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.resumeArea.uploading {
+  border-style: solid;
+  border-color: transparent;
+  cursor: default;
+}
+
+.resumeArea.uploading::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 3px;
+  background: conic-gradient(#3b82f6 var(--progress), transparent 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.resumeArea:hover {
+  background: var(--chat-pill-hover);
+  border-color: var(--text-muted);
+}
+
+.resumeInfo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.fileIcon {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-surface);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--info);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.fileName {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.fileStatus {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.changeBtn {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.changeBtn:hover {
+  background: var(--accent);
+  color: var(--bg-base);
+  border-color: var(--text-primary);
+}
+
+.uploadPlaceholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  padding: 10px 0;
+}
+
+/* JD Section Specifics */
+.jdContainer {
+  width: 100%;
+  text-align: left;
+}
+
+.jdTextarea {
+  width: 100%;
+  min-height: 220px;
+  padding: 18px 22px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border);
+  border-radius: 26px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--shadow-card);
+}
+
+.jdTextarea:hover {
+  border-color: var(--text-muted);
+}
+
+.jdTextarea:focus {
+  outline: none;
+  border-color: var(--info);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04), var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+.jdTextarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-family: inherit;
+}
+
+/* Bottom Action - The user's exact button style */
+.footerAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-bottom: 100px;
+}
+
+.startBtn {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  transition: all .2s ease-in-out;
+  overflow: hidden;
+  cursor: pointer;
+  color: var(--text-primary);
+  padding: 0 16px;
+  gap: 10px;
+}
+
+.startBtn:hover {
+  background: var(--glass-highlight);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.2);
+}
+
+:global([data-theme='light']) .startBtn:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+.startBtn:active {
+  transform: translateY(1px);
+  background: var(--bg-hover);
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.btnText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+}
+
+.iconRight {
+  font-family: 'Material Symbols Outlined';
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.startBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.limitReachedBtn {
+  background: rgba(239, 68, 68, 0.05) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+.limitReachedBtn .btnText {
+  color: #ef4444;
+}
+
+.limitReachedBtn .iconRight {
+  color: #ef4444;
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .topBar { padding: 12px 20px; height: 60px; }
+  .logoImg { height: 22px; }
+  
+  .uploadSection { padding: 20px 16px 100px; }
+  
+  .sectionCard { padding: 20px; border-radius: 20px; }
+  .sectionHeader { margin-bottom: 16px; }
+  .sectionHeader h3 { font-size: 16px; }
+  .sectionHeader span { font-size: 18px; }
+  
+  .resumeArea { padding: 16px; border-radius: 12px; gap: 12px; }
+  .fileIcon { width: 40px; height: 40px; }
+  .fileName { font-size: 14px; }
+  .fileStatus { font-size: 11px; }
+  .changeBtn { padding: 6px 12px; font-size: 12px; border-radius: 8px; width: 100%; }
+  
+  .jdTextarea { min-height: 160px; padding: 16px; border-radius: 20px; font-size: 14px; }
+  
+  .footerAction { margin-top: 12px; justify-content: center; }
+  .startBtn { height: 40px; width: auto; min-width: 130px; }
+}

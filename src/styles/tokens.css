@@ -1,0 +1,221 @@
+/* InterviewIQ Production UI Tokens */
+:root {
+  /* Spacing Scale */
+  --space-micro    : 4px;
+  --space-tight    : 8px;
+  --space-internal : 12px;
+  --space-default  : 16px;
+  --space-section  : 24px;
+  --space-large    : 32px;
+  --space-xlarge   : 48px;
+
+  /* Border Radius */
+  --radius-tag     : 6px;
+  --radius-small   : 10px;
+  --radius-default : 16px;
+  --radius-large   : 28px;
+  --radius-full    : 50%;
+  --radius-pill    : 100px;
+
+  /* Typography */
+  --font-main      : -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --line-height    : 1.7;
+
+  /* Font Sizes */
+  --size-h1        : 32px;
+  --size-h2        : 24px;
+  --size-h3        : 18px;
+  --size-body      : 16px;
+  --size-small     : 13px;
+  --size-micro     : 11px;
+
+  /* Font Weights */
+  --weight-normal  : 400;
+  --weight-medium  : 500;
+
+  /* Shadows - Flat UI Rule No Shadows */
+  --shadow-none    : none;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-page: 200ms ease;
+
+  /* Semantic Colors - Constants across themes */
+  --info           : #60A5FA;
+  --error          : #EF4444;   
+  --danger         : #EF4444;   
+  --bg-error       : rgba(239, 68, 68, 0.14);
+  --border-error   : rgba(239, 68, 68, 0.28);
+}
+
+/* Default Theme (Dark) */
+:root, [data-theme='dark'] {
+  --bg-base        : #000000;
+  --bg-surface     : #111111;
+  --bg-hover       : rgb(32, 32, 32);
+  --border         : rgba(255, 255, 255, 0.1);
+  --text-primary   : #F5F5F5;
+  --text-secondary : #C7C7C7;
+  --text-muted     : #858585;
+  --accent         : #FFFFFF;
+  --accent-hover   : #E7E7E7;
+  --accent-warm    : #D1D5DB;
+  --chat-pill      : rgb(32, 32, 32);
+  --chat-pill-hover: rgb(42, 42, 42);
+
+  /* Glass / Floating element tokens */
+  --glass-bg       : rgba(32, 32, 32, 0.82);
+  --glass-bg-solid : rgba(32, 32, 32, 0.96);
+  --glass-bg-hover : rgba(42, 42, 42, 0.92);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --glass-highlight-hover: rgba(255, 255, 255, 0.14);
+  --shimmer-from   : rgba(255, 255, 255, 0.05);
+  --shimmer-mid    : rgba(255, 255, 255, 0.12);
+  --hint-accent    : #e9ddff;
+  --shadow-card    : 0 18px 48px rgba(0, 0, 0, 0.32);
+  --shadow-card-hover: 0 24px 58px rgba(0, 0, 0, 0.42);
+
+  /* Code Syntax Highlighting (Dark Mode - One Dark) */
+  --code-base      : #d6deeb;
+  --code-comment   : #7f848e;
+  --code-punct     : #abb2bf;
+  --code-keyword   : #c678dd;
+  --code-string    : #98c379;
+  --code-number    : #d19a66;
+  --code-func      : #61afef;
+  --code-prop      : #e06c75;
+  --code-op        : #56b6c2;
+}
+
+/* Light Theme */
+[data-theme='light'] {
+  --bg-base        : #FFFFFF;
+  --bg-surface     : #F8F9FA;
+  --bg-hover       : #F1F3F5;
+  --border         : rgba(0, 0, 0, 0.08);
+  --text-primary   : #1A1A1A;
+  --text-secondary : #495057;
+  --text-muted     : #868E96;
+  --accent         : #000000;
+  --accent-hover   : #212529;
+  --accent-warm    : #4B5563;
+  --chat-pill      : #F1F3F5;
+  --chat-pill-hover: #E9ECEF;
+  --bg-error       : rgba(239, 68, 68, 0.08);
+  --border-error   : rgba(239, 68, 68, 0.2);
+
+  /* Glass / Floating element tokens */
+  --glass-bg       : rgba(255, 255, 255, 0.88);
+  --glass-bg-solid : rgba(255, 255, 255, 0.96);
+  --glass-bg-hover : rgba(240, 240, 240, 0.92);
+  --glass-highlight: rgba(0, 0, 0, 0.05);
+  --glass-highlight-hover: rgba(0, 0, 0, 0.1);
+  --shimmer-from   : rgba(0, 0, 0, 0.06);
+  --shimmer-mid    : rgba(0, 0, 0, 0.12);
+  --hint-accent    : #6C3FC5;
+  --shadow-card    : 0 12px 32px rgba(0, 0, 0, 0.05);
+  --shadow-card-hover: 0 18px 42px rgba(0, 0, 0, 0.08);
+
+  /* Code Syntax Highlighting (Light Mode - Premium Developer) */
+  --code-base      : #24292e; /* Charcoal black */
+  --code-comment   : #a0a6b2; /* Delicate minimal gray */
+  --code-punct     : #383a42; /* Premium dark slate */
+  --code-keyword   : #a626a4; /* Royal amethyst violet */
+  --code-string    : #50a14f; /* Classy organic olive green */
+  --code-number    : #986801; /* Terracotta deep amber */
+  --code-func      : #4078f2; /* Professional sapphire blue */
+  --code-prop      : #e06c75; /* Premium soft coral red */
+  --code-op        : #0184bc; /* Deep slate teal */
+}
+
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: var(--size-body);
+  line-height: var(--line-height);
+  font-weight: var(--weight-normal);
+  letter-spacing: 0.02em;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+h1, h2, h3 {
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.02em;
+}
+
+a {
+  color: var(--info);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+/* Mobile & Native App UX Improvements */
+button,
+a,
+input,
+textarea,
+select,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"] {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.icon-button {
+  -webkit-touch-callout: none;
+}
+
+button:focus,
+a:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+  border-radius: 10px;
+}

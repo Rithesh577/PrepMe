@@ -1,0 +1,930 @@
+import React, { useState, useEffect, useRef } from 'react';
+import api from '../api';
+import { Sidebar } from '../components/layout/Sidebar';
+import { MobileNav } from '../components/layout/MobileNav';
+import styles from './History.module.css';
+import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const score = payload[0].value;
+    const color = score >= 50 ? '#5a9e3f' : '#af4b4b';
+    
+    return (
+      <div className={styles.customTooltip}>
+        <p className={styles.tooltipDate}>{label}</p>
+        <div className={styles.tooltipScoreGroup}>
+          <span className={styles.tooltipValue} style={{ color }}>{score}</span>
+          <span className={styles.tooltipTotal}>/100</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
+export const History = ({ user, onNavigate, onViewReport, sessionActive }) => {
+  const [historyItems, setHistoryItems] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all'); 
+  const [chartRange, setChartRange] = useState('all'); 
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeMenu, setActiveMenu] = useState(null); 
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [showConfirm, setShowConfirm] = useState({ show: false, type: null, id: null });
+  const [bulkDeleteState, setBulkDeleteState] = useState(null); // null | 'loading' | 'success'
+  const menuRef = useRef(null);
+  const headerMenuRef = useRef(null);
+  const filterRef = useRef(null);
+  const scrollRef = useRef(null);
+  const rightPillRef = useRef(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeRightPillMenu, setActiveRightPillMenu] = useState(null); // 'options', 'filter', or null
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current;
+    if (!scrollEl) return;
+    const handleScroll = () => setIsScrolled(scrollEl.scrollTop > 30);
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const { data } = await api.get('/interview/history');
+        if (data.success) {
+          setHistoryItems(data.history || []);
+        } else {
+          setError('Failed to fetch history.');
+        }
+      } catch (err) {
+        console.error('Error fetching history:', err);
+        setError('Unable to load history. Please check your connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setActiveMenu(null);
+      }
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target)) {
+        setHeaderMenuOpen(false);
+      }
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setFilterDropdownOpen(false);
+      }
+      if (rightPillRef.current && !rightPillRef.current.contains(e.target)) {
+        setActiveRightPillMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+
+  const handleCardClick = (item) => {
+    if (activeMenu) return; // Don't navigate if menu is open
+    if (item.status === 'completed' && item.reportId) {
+      onViewReport(item.sessionId || item._id);
+    } else {
+      console.log('Session not completed or no report available.');
+    }
+  };
+
+  const toggleMenu = (e, id) => {
+    e.stopPropagation();
+    setActiveMenu(activeMenu === id ? null : id);
+  };
+
+  const handleDeleteSingle = (e, sessionId) => {
+    e.stopPropagation();
+    setActiveMenu(null);
+    setShowConfirm({ show: true, type: 'single', id: sessionId });
+  };
+
+  const handleClearAll = () => {
+    setHeaderMenuOpen(false);
+    setShowConfirm({ show: true, type: 'all', id: null });
+  };
+
+  const handleDeleteOngoing = async () => {
+    const abandonedItems = historyItems.filter(item => item.status === 'abandoned');
+    if (abandonedItems.length === 0) return;
+    
+    const originalItems = [...historyItems];
+    setHistoryItems(historyItems.filter(item => item.status !== 'abandoned'));
+    
+    try {
+      await Promise.all(
+        abandonedItems.map(item => api.delete(`/interview/history/${item.sessionId || item._id}`))
+      );
+    } catch (err) {
+      console.error("Failed to delete abandoned sessions:", err);
+      setHistoryItems(originalItems);
+    }
+  };
+
+  const confirmAction = async () => {
+    const { type, id } = showConfirm;
+
+    if (type === 'single') {
+      setShowConfirm({ show: false, type: null, id: null });
+      const originalItems = [...historyItems];
+      setHistoryItems(historyItems.filter(item => (item.sessionId || item._id) !== id));
+      try {
+        await api.delete(`/interview/history/${id}`);
+      } catch (err) {
+        console.error("Delete failed", err);
+        setHistoryItems(originalItems);
+      }
+    } else if (['all', 'abandoned', 'completed'].includes(type)) {
+      setBulkDeleteState('loading');
+      const originalItems = [...historyItems];
+
+      try {
+        if (type === 'all') {
+          await api.delete('/interview/history');
+          setHistoryItems([]);
+        } else {
+          const targetItems = historyItems.filter(item => item.status === type);
+          if (targetItems.length > 0) {
+            await Promise.all(
+              targetItems.map(item => api.delete(`/interview/history/${item.sessionId || item._id}`))
+            );
+          }
+          setHistoryItems(historyItems.filter(item => item.status !== type));
+        }
+
+        setBulkDeleteState('success');
+        setTimeout(() => {
+          setShowConfirm({ show: false, type: null, id: null });
+          setBulkDeleteState(null);
+        }, 1200);
+      } catch (err) {
+        console.error(`Delete ${type} failed`, err);
+        setHistoryItems(originalItems);
+        setBulkDeleteState(null);
+        setShowConfirm({ show: false, type: null, id: null });
+      }
+    }
+  };
+
+  const getChartData = () => {
+    const completedItems = historyItems
+      .filter(item => item.status === 'completed' && item.score != null)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    if (completedItems.length === 0) return [];
+
+    let data = completedItems.map((item, index) => ({
+      id: item._id || item.sessionId || `session-${index}`,
+      date: new Date(item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      score: item.score
+    }));
+
+    // Apply range filters
+    if (chartRange === '7d') {
+      data = data.slice(-7);
+    } else if (chartRange === '1m') {
+      data = data.slice(-30);
+    }
+
+    return data;
+  };
+
+  const chartData = getChartData();
+
+  const getStats = () => {
+    const completed = historyItems.filter(item => item.status === 'completed' && item.score != null);
+    if (completed.length === 0) return null;
+
+    // Get items in the current range (7d, 1m, or all)
+    const now = new Date();
+    let startDate = new Date(0);
+    if (chartRange === '7d') startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    else if (chartRange === '1m') startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const rangeItems = completed
+      .filter(item => new Date(item.createdAt) >= startDate)
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    if (rangeItems.length === 0) return null;
+
+    const totalInterviews = completed.length; // Lifetime total
+    const rangeAvg = Math.round(rangeItems.reduce((acc, curr) => acc + curr.score, 0) / rangeItems.length);
+    
+    let improvementRate = 0;
+    let trend = 'neutral';
+    
+    if (rangeItems.length >= 2) {
+      const firstScore = rangeItems[0].score;
+      const lastScore = rangeItems[rangeItems.length - 1].score;
+      improvementRate = firstScore > 0 ? Math.round(((lastScore - firstScore) / firstScore) * 100) : 0;
+      trend = improvementRate > 0 ? 'upward' : improvementRate < 0 ? 'downward' : 'neutral';
+    }
+
+    return {
+      total: totalInterviews,
+      avgScore: rangeAvg,
+      improvementRate,
+      trend
+    };
+  };
+
+  const stats = getStats();
+
+  return (
+    <div className={styles.pageContainer}>
+      <Sidebar user={user} activeTab="history" onNavigate={onNavigate} sessionActive={sessionActive} />
+      <MobileNav user={user} activeTab="history" onNavigate={onNavigate} sessionActive={sessionActive} isLoading={loading} />
+
+      <main className={styles.mainCanvas}>
+        <header className={styles.topBar}>
+          {/* Progressive blur layers — content blurs gradually as it scrolls under */}
+          <div className={styles.headerBlurContainer}>
+            <div className={styles.blurLayer1}></div>
+            <div className={styles.blurLayer2}></div>
+            <div className={styles.blurLayer3}></div>
+          </div>
+
+          <div className={styles.topLeftSection}>
+            {/* Desktop: show plain title */}
+            <h1 className={styles.compactTitle}>History</h1>
+          </div>
+
+          <div className={styles.headerActions}>
+            {historyItems.length > 0 && (
+              <div className={styles.headerMenuWrapper} ref={headerMenuRef}>
+                <button 
+                  className={styles.headerMenuBtn} 
+                  onClick={() => setHeaderMenuOpen(!headerMenuOpen)}
+                >
+                  <span className="material-symbols-outlined">more_vert</span>
+                </button>
+                {headerMenuOpen && (
+                  <div className={styles.headerDropdown}>
+                    <button 
+                      onClick={() => {
+                        setShowConfirm({ show: true, type: 'abandoned', id: null });
+                        setHeaderMenuOpen(false);
+                      }} 
+                      className={styles.deleteOption}
+                    >
+                      <span className="material-symbols-outlined">delete_sweep</span>
+                      Clear Abandoned
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setShowConfirm({ show: true, type: 'completed', id: null });
+                        setHeaderMenuOpen(false);
+                      }} 
+                      className={styles.deleteOption}
+                    >
+                      <span className="material-symbols-outlined">task_alt</span>
+                      Clear Completed
+                    </button>
+                    <button onClick={handleClearAll} className={styles.deleteOption}>
+                      <span className="material-symbols-outlined">delete_forever</span>
+                      Clear All History
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Mobile floating back pill — only visible on mobile */}
+        <button 
+          className={`${styles.mobileHistoryPill} ${isScrolled ? styles.pillScrolled : ''}`}
+          onClick={() => onNavigate && onNavigate('upload')}
+          aria-label={isScrolled ? "History" : "Go Back"}
+        >
+          <div className={styles.pillArrow}>
+            <div className={styles.pillArrowHead}></div>
+            <div className={styles.pillArrowShaft}></div>
+          </div>
+          <span className={styles.pillText}>History</span>
+        </button>
+
+        {/* Mobile floating action/filter pill — only visible on mobile */}
+        {historyItems.length > 0 && (
+          <div 
+            className={`${styles.mobileActionPill} ${activeRightPillMenu ? styles.rightMenuOpen : ''} ${activeRightPillMenu === 'filter' ? styles.menuFilter : activeRightPillMenu === 'options' ? styles.menuOptions : ''}`}
+            ref={rightPillRef}
+          >
+            {/* Base state: Filter and More actions */}
+            <div className={styles.rightPillBaseContent}>
+              <button 
+                className={styles.rightPillBtn}
+                onClick={() => setActiveRightPillMenu('filter')}
+                aria-label="Filter"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 6h18M6 12h12M10 18h4" />
+                </svg>
+              </button>
+              <button 
+                className={styles.rightPillBtn}
+                onClick={() => setActiveRightPillMenu('options')}
+                aria-label="Actions"
+              >
+                <div className={styles.customHorizontalDots}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+            </div>
+
+            {/* Menu state: Shows dynamic options depending on clicked action */}
+            <div className={styles.rightPillMenuContent}>
+              {activeRightPillMenu === 'options' && (
+                <div className={styles.menuOptionsGroup}>
+                  <button 
+                    onClick={() => {
+                      setShowConfirm({ show: true, type: 'abandoned', id: null });
+                      setActiveRightPillMenu(null);
+                    }}
+                    className={styles.menuOptionItem}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>delete_sweep</span>
+                    Delete Abandoned
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowConfirm({ show: true, type: 'completed', id: null });
+                      setActiveRightPillMenu(null);
+                    }}
+                    className={styles.menuOptionItem}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>task_alt</span>
+                    Delete Completed
+                  </button>
+                  <button 
+                    onClick={() => {
+                      handleClearAll();
+                      setActiveRightPillMenu(null);
+                    }}
+                    className={styles.menuOptionItem}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 002 2h8a2 2 0 002-2l1-12M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3" />
+                    </svg>
+                    Delete All
+                  </button>
+                </div>
+              )}
+
+              {activeRightPillMenu === 'filter' && (
+                <div className={styles.menuOptionsGroup}>
+                  <button 
+                    onClick={() => {
+                      setStatusFilter(statusFilter === 'completed' ? 'all' : 'completed');
+                      setActiveRightPillMenu(null);
+                    }}
+                    className={`${styles.menuOptionItem} ${statusFilter === 'completed' ? styles.menuOptionActive : ''}`}
+                  >
+                    <span className={styles.statusDot} style={{ background: '#22c55e', display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%' }}></span>
+                    Completed
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setStatusFilter(statusFilter === 'abandoned' ? 'all' : 'abandoned');
+                      setActiveRightPillMenu(null);
+                    }}
+                    className={`${styles.menuOptionItem} ${statusFilter === 'abandoned' ? styles.menuOptionActive : ''}`}
+                  >
+                    <span className={styles.statusDot} style={{ background: '#8b8d91', display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%' }}></span>
+                    Abandoned
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
+        <section className={styles.scrollArea} ref={scrollRef}>
+          <div className={styles.historyContainer}>
+            {/* CHART SKELETON */}
+            {loading && (
+              <>
+                <div className={styles.chartSkeleton}>
+                  <div className={styles.chartSkeletonHeader}>
+                    <div className={`${styles.skeletonLine}`} style={{ width: '35%', height: '22px', borderRadius: '8px' }}></div>
+                    <div className={`${styles.skeletonLine}`} style={{ width: '45%', height: '32px', borderRadius: '100px' }}></div>
+                  </div>
+                  <div className={styles.chartSkeletonBody}></div>
+                </div>
+                <div className={styles.statsSkeleton}>
+                  <div className={styles.skeletonInner}></div>
+                </div>
+              </>
+            )}
+
+            {/* CHART SECTION */}
+            {!loading && !error && historyItems.length > 0 && chartData.length > 0 && (
+              <>
+                <div className={styles.chartSection}>
+                  <div className={styles.chartHeader}>
+                    <h3 className={styles.chartTitle}>Performance Trend</h3>
+                    <div className={styles.chartTabs}>
+                      <div 
+                        className={styles.activeIndicator} 
+                        style={{ 
+                          transform: `translateX(${chartRange === '7d' ? '0%' : chartRange === '1m' ? '100%' : '200%'})`
+                        }} 
+                      />
+                      <button 
+                        className={`${styles.chartTab} ${chartRange === '7d' ? styles.activeTab : ''}`}
+                        onClick={() => setChartRange('7d')}
+                      >
+                        <span className="material-symbols-outlined">calendar_view_week</span>
+                        7d
+                      </button>
+                      <button 
+                        className={`${styles.chartTab} ${chartRange === '1m' ? styles.activeTab : ''}`}
+                        onClick={() => setChartRange('1m')}
+                      >
+                        <span className="material-symbols-outlined">calendar_month</span>
+                        1m
+                      </button>
+                      <button 
+                        className={`${styles.chartTab} ${chartRange === 'all' ? styles.activeTab : ''}`}
+                        onClick={() => setChartRange('all')}
+                      >
+                        <span className="material-symbols-outlined">all_inclusive</span>
+                        All
+                      </button>
+                    </div>
+                  </div>
+                  <div className={styles.chartContainer}>
+                    {chartData.length < 2 ? (
+                      <div className={styles.emptyChartState}>
+                        <span className="material-symbols-outlined">analytics</span>
+                        <p>Not enough data to show performance trend yet.</p>
+                        <span>Complete a few more sessions to see your progress!</span>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={isMobile ? 180 : 280} minWidth={0}>
+                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 25 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#333" strokeOpacity={0.5} />
+                          <XAxis 
+                            dataKey="id" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tickFormatter={(id) => {
+                              const item = chartData.find(d => d.id === id);
+                              return item ? item.date : '';
+                            }}
+                            tick={{ fontSize: 11, fill: '#666' }} 
+                            dy={10} 
+                            minTickGap={20}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 11, fill: '#666' }} 
+                            dx={-10} 
+                            width={40}
+                            domain={[0, 100]} 
+                            allowDecimals={false}
+                            tickCount={6}
+                          />
+                          <Tooltip 
+                            content={<CustomTooltip />}
+                            cursor={{ fill: 'rgba(255, 255, 255, 0.05)', radius: 6 }}
+                            wrapperStyle={{ outline: 'none' }}
+                            offset={isMobile ? -80 : 10}
+                          />
+                          <Bar 
+                            dataKey="score" 
+                            radius={[6, 6, 0, 0]}
+                            barSize={isMobile ? 14 : 24}
+                            animationDuration={1500}
+                          >
+                            {chartData.map((entry, index) => (
+                              <Cell 
+                                key={`cell-${index}`} 
+                                fill={entry.score >= 50 ? '#5a9e3f' : '#af4b4b'} 
+                                fillOpacity={0.9}
+                              />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
+                  </div>
+                </div>
+
+                {stats && (
+                  <div className={styles.statsContainer}>
+                    <div className={styles.statPill}>
+                      <div className={`${styles.statIcon} ${styles.neutral}`}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>work_history</span>
+                      </div>
+                      <div className={styles.statLabel}>Interviews Given:</div>
+                      <div className={styles.statValue}>{stats.total}</div>
+                    </div>
+                    
+                    <div className={styles.statPill}>
+                      <div className={`${styles.statIcon} ${styles.neutral}`}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>auto_graph</span>
+                      </div>
+                      <div className={styles.statLabel}>Avg. Score:</div>
+                      <div className={styles.statValue}>{stats.avgScore}/100</div>
+                    </div>
+
+                    <div className={styles.statPill}>
+                      <div className={`${styles.statIcon} ${styles[stats.trend]}`}>
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>
+                          {stats.trend === 'upward' ? 'trending_up' : stats.trend === 'downward' ? 'trending_down' : 'trending_flat'}
+                        </span>
+                      </div>
+                      <div className={styles.statLabel}>Performance:</div>
+                      <div className={styles.statValue} style={{ 
+                        color: stats.trend === 'upward' ? '#22c55e' : stats.trend === 'downward' ? '#ef4444' : 'inherit'
+                      }}>
+                        {stats.improvementRate > 0 ? '+' : ''}{stats.improvementRate}%
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {loading ? (
+              <div className={styles.historyGrid}>
+                {[1, 2, 3, 4, 5, 6].map((skel) => (
+                  <div key={skel} className={styles.skeletonCard}>
+                    <div className={styles.skeletonHeader}>
+                      <div className={`${styles.skeletonLine} ${styles.skeletonBadge}`}></div>
+                    </div>
+                    <div className={styles.skeletonBody}>
+                      <div className={styles.skeletonContent}>
+                        <div className={`${styles.skeletonLine} ${styles.skeletonTitle}`}></div>
+                        <div className={`${styles.skeletonLine} ${styles.skeletonSubtitle}`}></div>
+                      </div>
+                      <div className={`${styles.skeletonLine} ${styles.skeletonCircle}`}></div>
+                    </div>
+                    <div className={`${styles.skeletonLine} ${styles.skeletonSummary}`}></div>
+                    <div className={styles.skeletonFooter}>
+                      <div className={`${styles.skeletonLine} ${styles.skeletonDate}`}></div>
+                      <div className={`${styles.skeletonLine} ${styles.skeletonButton}`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : error ? (
+              <div className={styles.emptyState}>
+                <span className="material-symbols-outlined">error</span>
+                <h3>Oops! Something went wrong.</h3>
+                <p>{error}</p>
+              </div>
+            ) : historyItems.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptySvgWrapper}>
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={styles.emptySvg}>
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                </div>
+                <h3>No interviews yet</h3>
+                <p>You haven't completed any interviews. Start a new session to see your progress here.</p>
+              </div>
+            ) : (
+              <>
+                {/* Desktop filter row — segmented control, same as chart 7d/1m/All tabs */}
+                <div className={styles.desktopFilterRow}>
+                  <div className={styles.desktopFilterTabs}>
+                    <div
+                      className={styles.desktopFilterIndicator}
+                      style={{
+                        transform: `translateX(${statusFilter === 'all' ? '0%' : statusFilter === 'completed' ? '100%' : '200%'})`
+                      }}
+                    />
+                    <button
+                      className={`${styles.desktopFilterTab} ${statusFilter === 'all' ? styles.desktopFilterTabActive : ''}`}
+                      onClick={() => setStatusFilter('all')}
+                    >
+                      All
+                    </button>
+                    <button
+                      className={`${styles.desktopFilterTab} ${statusFilter === 'completed' ? styles.desktopFilterTabActive : ''}`}
+                      onClick={() => setStatusFilter('completed')}
+                    >
+                      <span className={styles.filterDot} style={{ background: '#22c55e' }}></span>
+                      Completed
+                    </button>
+                    <button
+                      className={`${styles.desktopFilterTab} ${statusFilter === 'abandoned' ? styles.desktopFilterTabActive : ''}`}
+                      onClick={() => setStatusFilter('abandoned')}
+                    >
+                      <span className={styles.filterDot} style={{ background: '#8b8d91' }}></span>
+                      Abandoned
+                    </button>
+                  </div>
+                </div>
+
+                {(() => {
+                  const filteredItems = historyItems.filter(item => {
+                    if (statusFilter === 'completed') return item.status === 'completed';
+                    if (statusFilter === 'abandoned') return item.status === 'abandoned';
+                    return true;
+                  });
+
+                  if (filteredItems.length === 0) {
+                    return (
+                      <div className={styles.emptyState}>
+                        {statusFilter === 'abandoned' ? (
+                          <>
+                            <div className={styles.emptySvgWrapper}>
+                              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={styles.emptySvg}>
+                                <path d="M22 12h-6l-2 3h-4l-2-3H2v8a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-8Z"/>
+                                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>
+                                <line x1="12" y1="8" x2="12" y2="12"/>
+                                <line x1="12" y1="16" x2="12.01" y2="16"/>
+                              </svg>
+                            </div>
+                            <h3>No abandoned sessions</h3>
+                            <p>Great job! All of your interview sessions were completed successfully.</p>
+                          </>
+                        ) : statusFilter === 'completed' ? (
+                          <>
+                            <div className={styles.emptySvgWrapper}>
+                              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={styles.emptySvg}>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="16" y1="13" x2="8" y2="13"/>
+                                <line x1="16" y1="17" x2="8" y2="17"/>
+                                <polyline points="10 9 9 9 8 9"/>
+                              </svg>
+                            </div>
+                            <h3>No completed sessions</h3>
+                            <p>You don't have any completed sessions yet. Finish an interview to see your report and score here.</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className={styles.emptySvgWrapper}>
+                              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={styles.emptySvg}>
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                              </svg>
+                            </div>
+                            <h3>No interviews found</h3>
+                            <p>We couldn't find any sessions matching your criteria.</p>
+                          </>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className={styles.historyGrid}>
+                      {filteredItems.map((item) => {
+                    const isCompleted = item.status === 'completed';
+                    const date = new Date(item.createdAt);
+                    const dateString = date.toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      year: 'numeric' 
+                    });
+                    const sid = item.sessionId || item._id;
+                    const isMenuOpen = activeMenu === sid;
+                    const isConfirming = showConfirm.show && showConfirm.type === 'single' && showConfirm.id === sid;
+
+                    return (
+                      <div 
+                        key={item._id} 
+                        className={`${styles.historyCard} ${isConfirming ? styles.confirming : ''} ${item.status === 'abandoned' ? styles.abandonedCard : ''}`}
+                        onClick={() => !isConfirming && handleCardClick(item)}
+                      >
+                        {isConfirming ? (
+                          <div className={styles.confirmState}>
+                            <div className={styles.confirmContent}>
+                              <span className="material-symbols-outlined">warning</span>
+                              <div className={styles.confirmText}>
+                                <h4>Delete this session?</h4>
+                                <p>This action cannot be undone.</p>
+                              </div>
+                            </div>
+                            <div className={styles.confirmActions}>
+                              <button 
+                                className={styles.cancelAction} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setShowConfirm({ show: false, type: null, id: null });
+                                }}
+                              >
+                                Cancel
+                              </button>
+                              <button 
+                                className={styles.deleteAction} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmAction();
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className={styles.cardHeader}>
+                              <div className={styles.headerLeft}>
+                                <div className={`${styles.statusBadge} ${styles[item.status] || ''}`}>
+                                  <span className={styles.statusDot}></span>
+                                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                </div>
+                              </div>
+                              <div className={styles.headerRight}>
+                                <div className={styles.menuWrapper} ref={isMenuOpen ? menuRef : null}>
+                                  <button 
+                                    className={styles.menuDots}
+                                    onClick={(e) => toggleMenu(e, sid)}
+                                  >
+                                    <span className="material-symbols-outlined">more_vert</span>
+                                  </button>
+                                  
+                                  {isMenuOpen && (
+                                    <div className={styles.dropdownMenu}>
+                                      <button onClick={(e) => handleDeleteSingle(e, sid)} className={styles.deleteOption}>
+                                        <span className="material-symbols-outlined">delete</span>
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className={styles.cardBody}>
+                              <div className={styles.bodyContent}>
+                                <h3 className={styles.jobTitle}>
+                                  {item.jobDescription 
+                                    ? (() => {
+                                        const cleanTitle = item.jobDescription.replace(/\*/g, '').trim();
+                                        return cleanTitle.length > 50 
+                                          ? cleanTitle.substring(0, 50) + '...' 
+                                          : cleanTitle;
+                                      })()
+                                    : 'General SWE Interview'}
+                                </h3>
+                                <p className={styles.jobSubtitle}>
+                                  {item.focusArea || 'Backend + Problem Solving'}
+                                </p>
+                              </div>
+
+                              {isCompleted && (
+                                <div className={styles.scoreCircleWrapper}>
+                                  <svg className={styles.scoreSvg} viewBox="0 0 100 100">
+                                    <circle 
+                                      className={styles.scoreTrack} 
+                                      cx="50" cy="50" r="45" 
+                                    />
+                                    <circle 
+                                      className={styles.scoreProgress} 
+                                      cx="50" cy="50" r="45" 
+                                      strokeDasharray={`${2 * Math.PI * 45 * (item.score / 100)} ${2 * Math.PI * 45}`}
+                                      style={{ stroke: item.score >= 80 ? '#22c55e' : item.score >= 50 ? '#f59e0b' : '#ef4444' }}
+                                    />
+                                  </svg>
+                                  <div className={styles.scoreTextCenter}>
+                                    <div className={styles.scoreValueCenter}>
+                                      {item.score}<span className={styles.scoreTotal}>/100</span>
+                                    </div>
+                                    <div className={styles.scoreLabelCenter}>Score</div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {isCompleted && (
+                              <div className={styles.summarySection}>
+                                <div className={styles.summaryIcon}>
+                                  <span className="material-symbols-outlined" style={{ 
+                                    color: item.score >= 80 ? '#22c55e' : item.score >= 50 ? '#f59e0b' : '#ef4444' 
+                                  }}>
+                                    {item.score >= 80 ? 'trending_up' : item.score >= 50 ? 'bar_chart' : 'trending_down'}
+                                  </span>
+                                </div>
+                                <div className={styles.summaryText}>
+                                  <h4 style={{ 
+                                    color: item.score >= 80 ? '#22c55e' : item.score >= 50 ? '#f59e0b' : '#ef4444' 
+                                  }}>
+                                    {item.score >= 80 ? 'Excellent Performance' : item.score >= 50 ? 'Needs Improvement' : 'Below Average'}
+                                  </h4>
+                                  <p>{item.summaryNote || 'Review recommended to strengthen key areas.'}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className={styles.cardFooter}>
+                              <div className={styles.dateSection}>
+                                <span className="material-symbols-outlined">calendar_today</span>
+                                <span>Completed on <span className={styles.dateHighlight}>{dateString}</span></span>
+                              </div>
+                              
+                              {isCompleted && (
+                                <button className={styles.viewReportBtn}>
+                                  View Report <span className="material-symbols-outlined">chevron_right</span>
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    );
+                      })}
+                    </div>
+                  );
+                })()}
+              </>
+            )}
+          </div>
+        </section>
+      </main>
+
+      {showConfirm.show && ['all', 'abandoned', 'completed'].includes(showConfirm.type) && (
+        <div 
+          className={styles.modalOverlay} 
+          onClick={() => {
+            if (bulkDeleteState) return;
+            setShowConfirm({ show: false, type: null, id: null });
+            setBulkDeleteState(null);
+          }}
+        >
+          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            {bulkDeleteState === 'loading' ? (
+              <div className={styles.spinnerContainer}>
+                <div className={styles.spinner}>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                  <div className={styles.spinnerBlade}></div>
+                </div>
+                <p className={styles.spinnerLabel}>Deleting sessions...</p>
+              </div>
+            ) : bulkDeleteState === 'success' ? (
+              <div className={styles.successContainer}>
+                <div className={styles.checkIconWrapper}>
+                  <svg className={styles.checkIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 12 9 17 20 6"></polyline>
+                  </svg>
+                </div>
+                <p className={styles.successText}>Successfully deleted</p>
+              </div>
+            ) : (
+              <>
+                <p className={styles.modalText}>
+                  {showConfirm.type === 'all' ? 'Delete all history?' : 
+                   showConfirm.type === 'abandoned' ? 'Delete abandoned sessions?' : 
+                   'Delete completed sessions?'} This is irreversible.
+                </p>
+                <div className={styles.modalActions}>
+                  <button 
+                    className={styles.cancelBtn} 
+                    onClick={() => {
+                      setShowConfirm({ show: false, type: null, id: null });
+                      setBulkDeleteState(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button className={styles.confirmBtn} onClick={confirmAction}>
+                    Delete
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
